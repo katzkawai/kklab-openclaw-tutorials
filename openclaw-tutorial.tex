@@ -9,6 +9,8 @@
 \usepackage{luatexja-fontspec}
 \usepackage{graphicx}
 \usepackage{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{positioning,arrows.meta,fit}
 \usepackage{hyperref}
 \usepackage{listings}
 \usepackage{tcolorbox}
@@ -182,60 +184,110 @@ Gateway は WebSocket ベース（\texttt{ws://127.0.0.1:18789}）で動作し�
 
 \begin{center}
 \begin{tcolorbox}[colback=white,colframe=clawdark,width=0.92\textwidth,title=アーキテクチャ]
-\small
-\begin{tabular}{ccc}
-\begin{minipage}[t]{0.25\textwidth}
 \centering
-\textbf{チャットアプリ}\\[3mm]
-\fbox{\small\begin{tabular}{l}
-WhatsApp\\Telegram\\Discord\\Slack\\Signal\\...
-\end{tabular}}\\[6mm]
-\fbox{\small\begin{tabular}{l}
-Dashboard\\{\ttfamily :18789}
-\end{tabular}}
-\end{minipage}
-&
-\begin{minipage}[t]{0.05\textwidth}
-\centering
-\vspace{10mm}
-$\Longrightarrow$\\[20mm]
-$\Longleftrightarrow$
-\end{minipage}
-&
-\begin{minipage}[t]{0.28\textwidth}
-\centering
-\textbf{Gateway}\\[3mm]
-\fbox{\small\begin{tabular}{l}
-OpenClaw\\
-Gateway {\ttfamily :18789}\\[2mm]
-\textit{セッション管理}\\
-\textit{ユーザー認証}\\
-\textit{スキル読込}\\
-\textit{メモリ管理}
-\end{tabular}}
-\end{minipage}
-\begin{minipage}[t]{0.05\textwidth}
-\centering
-\vspace{10mm}
-$\Longrightarrow$
-\end{minipage}
-\begin{minipage}[t]{0.25\textwidth}
-\centering
-\textbf{エージェント}\\[3mm]
-\fbox{\small\begin{tabular}{l}
-Pi Agent\\(RPC Mode)
-\end{tabular}}\\[3mm]
-$\Downarrow$\\[3mm]
-\fbox{\small\begin{tabular}{l}
-ツール群\\[1mm]
-\textit{ブラウザ}\\
-\textit{ファイル}\\
-\textit{シェル}
-\end{tabular}}
-\end{minipage}
-\end{tabular}
+\begin{tikzpicture}[
+  every node/.style={font=\small},
+  box/.style={draw=clawdark, rounded corners=4pt, fill=clawblue!8,
+              minimum width=28mm, minimum height=10mm, align=center,
+              text=clawdark},
+  lbl/.style={font=\small\bfseries, text=clawdark},
+  arr/.style={-{Stealth[length=3mm]}, thick, clawdark},
+  darr/.style={{Stealth[length=3mm]}-{Stealth[length=3mm]}, thick, clawdark},
+]
+% ── 左列：チャットアプリ＋ Dashboard ──
+\node[box, minimum height=24mm] (chat)
+  {WhatsApp\\Telegram\\Discord\\Slack\\Signal\\...};
+\node[lbl, above=2mm of chat] {チャットアプリ};
+
+\node[box, below=10mm of chat] (dash)
+  {Dashboard\\{\ttfamily :18789}};
+
+% ── 中央：Gateway ──
+\node[box, minimum height=34mm, right=22mm of chat] (gw)
+  {OpenClaw\\Gateway {\ttfamily :18789}\\[2pt]
+   \textit{セッション管理}\\
+   \textit{ユーザー認証}\\
+   \textit{スキル読込}\\
+   \textit{メモリ管理}};
+\node[lbl, above=2mm of gw] {Gateway};
+
+% ── 右列：Pi Agent ＋ ツール群 ──
+\node[box, right=22mm of gw, yshift=8mm] (pi)
+  {Pi Agent\\(RPC Mode)};
+\node[lbl, above=2mm of pi] {エージェント};
+
+\node[box, minimum height=18mm, below=10mm of pi] (tools)
+  {ツール群\\[1pt]
+   \textit{ブラウザ}\enspace
+   \textit{ファイル}\enspace
+   \textit{シェル}};
+
+% ── 矢印 ──
+% チャットアプリ → Gateway（中央同士を直結）
+\draw[arr]  (chat.east) -- (gw.west);
+% Dashboard ↔ Gateway（Dashboard から右へ出て Gateway 左下へ接続）
+\draw[darr] (dash.east) -- ([yshift=-12mm]gw.west);
+% Gateway → Pi Agent
+\draw[arr]  ([yshift=8mm]gw.east) -- (pi.west);
+% Pi Agent → ツール群
+\draw[arr]  (pi.south) -- (tools.north);
+\end{tikzpicture}
 \end{tcolorbox}
 \end{center}
+
+\subsection{Pi エージェントランタイム}
+
+図中の「Pi Agent」は、OpenClaw の頭脳にあたる\textbf{エージェントランタイム}である。
+OpenClaw は \texttt{@mariozechner/pi-agent-core}（通称 \textbf{pi-mono}）ライブラリを基盤として、
+LLM への問い合わせ、ツール呼び出し、応答生成といったエージェントループを実行する。
+
+\subsubsection{pi-mono とは}
+
+pi-mono は Mario Zechner 氏（\texttt{@mariozechner}）が開発した
+AI エージェント基盤ライブラリである。
+npm パッケージ名は \texttt{@mariozechner/pi-agent-core} で、
+以下の機能を提供する。
+
+\begin{itemize}
+  \item \textbf{モデル抽象化}：Anthropic Claude、OpenAI GPT、ローカルモデルなど複数の LLM プロバイダを統一的に呼び出すインターフェース
+  \item \textbf{ツール実行フレームワーク}：LLM が生成するツール呼び出しリクエストを受け取り、対応するツールを実行して結果を返す仕組み
+  \item \textbf{ストリーミング}：LLM 応答をバッチではなく逐次的にストリーミングし、ツール呼び出しもストリーム中に処理するパイプライン
+  \item \textbf{エージェントループ}：「入力→モデル推論→ツール実行→出力」のサイクルを自動的に繰り返すランタイム
+\end{itemize}
+
+\subsubsection{OpenClaw と pi-mono の関係}
+
+OpenClaw は pi-mono をそのまま使うのではなく、
+エージェントループとツール実行の中核部分だけを取り出し、
+独自のセッション管理・チャンネル接続・スキル機構で包み込んでいる。
+
+統合のポイントは以下のとおりである。
+
+\begin{itemize}
+  \item \textbf{埋め込み実行}：Pi を外部プロセスとして起動するのではなく、
+    \texttt{createAgentSession()} API を呼び出して Gateway プロセス内にエージェントを埋め込む。
+    これにより、セッションのライフサイクルとイベント処理を OpenClaw 側で完全に制御できる。
+  \item \textbf{独自管理層}：セッション管理、サービス発見、ツール接続のルーティングは OpenClaw が担当する。
+    pi-mono はあくまで「推論エンジン」としてのみ利用される。
+  \item \textbf{マルチチャンネル対応}：Gateway が WhatsApp・Telegram・Discord 等の複数チャンネルを束ね、
+    単一の pi-mono エージェントランタイムに接続するアーキテクチャになっている。
+\end{itemize}
+
+\subsubsection{エージェントループの 4 ステップ}
+
+具体的には、エージェントランタイムは各ターンで以下の 4 ステップを実行する。
+
+\begin{enumerate}
+  \item \textbf{セッション解決}：対話相手とコンテキストの特定
+  \item \textbf{コンテキスト組立}：メモリ、スキル、ツール情報の統合
+  \item \textbf{モデル応答のストリーミング}：LLM への問い合わせとツール呼び出しの逐次実行
+  \item \textbf{状態の永続化}：更新された会話履歴やメモリのディスク書き込み
+\end{enumerate}
+
+\begin{notebox}
+pi-mono が提供するのはステップ 2〜3 のモデル呼び出し・ツール実行の部分であり、
+ステップ 1 のセッション解決とステップ 4 の永続化は OpenClaw 独自の実装が担っている。
+\end{notebox}
 
 % ═══════════════════════════════════════════
 \section{動作環境の準備}
@@ -985,6 +1037,191 @@ openclaw hooks add --url /github-webhook \
 \textit{「このスプレッドシートのデータを集計して結果を教えて」}\\
 \textit{「プロジェクトの README.md を更新して」}
 \end{quote}
+
+% ═══════════════════════════════════════════
+\section{ケーススタディ：Telegram を使った株式トレーディング戦略}
+% ═══════════════════════════════════════════
+
+本節では、GMO インターネットグループの K.S. 氏（AI 研究開発室）がブログ記事
+\footnote{\url{https://recruit.group.gmo/engineer/jisedai/blog/openclaw_stock_trading/}}
+で紹介した、OpenClaw と Telegram を組み合わせたペーパートレード運用の事例を取り上げる。
+
+\begin{warnbox}
+本ケーススタディはペーパートレード（模擬取引）のみを扱っており、
+実際の金融取引を推奨するものではない。
+投資判断は自己責任で行うこと。
+\end{warnbox}
+
+\subsection{概要と目的}
+
+この事例では、OpenClaw エージェント「Trady」を VPS 上に構築し、
+Telegram 経由で米国株のトレーディング戦略の提案・分析・PDCA 改善を
+チャットベースで行う環境を実現している。
+
+主なワークフロー：
+\begin{enumerate}
+  \item 毎日の定時タスク（HEARTBEAT）で有望銘柄をスキャンし Telegram に送信
+  \item ユーザーがチャットで戦略を相談し、エージェントがリアルタイムに助言
+  \item 取引結果をメモリに記録し、次回以降の戦略改善に活用
+\end{enumerate}
+
+\subsection{インフラ構成}
+
+記事では、セキュリティ上の理由から普段使いの PC ではなく
+VPS（仮想専用サーバー）上に OpenClaw を構築することが強く推奨されている。
+
+\begin{longtable}{lp{80mm}}
+\toprule
+\textbf{項目} & \textbf{内容} \\
+\midrule
+\endhead
+VPS プロバイダ & Hostinger（KVM 2 プラン） \\
+スペック & 2 vCPU / 8GB RAM / 100GB NVMe / 8TB 帯域幅 \\
+デプロイ方法 & Docker 経由 \\
+チャンネル & Telegram（BotFather で Bot Token を取得） \\
+\bottomrule
+\end{longtable}
+
+セットアップの流れ：
+\begin{lstlisting}[language=bash,title=VPS 上での OpenClaw セットアップ]
+# Docker コンテナの確認
+docker ps
+
+# コンテナ内に入る
+docker exec -it <container_id> bash
+
+# 初期設定
+openclaw onboard
+
+# Telegram チャンネルの追加
+openclaw channel add
+
+# Telegram ペアリングの承認
+openclaw pairing approve telegram <Telegram_ID>
+\end{lstlisting}
+
+\begin{notebox}
+元記事では \texttt{openclaw channel add}（単数形）が使われているが、
+公式 CLI では \texttt{openclaw channels add}（複数形）が正しいコマンドである。
+\end{notebox}
+
+\subsection{ワークスペースの構成}
+
+トレーディング用途にカスタマイズされたワークスペース構成は以下のとおりである。
+
+\begin{lstlisting}[title=ワークスペースのディレクトリ構成]
+~/.openclaw/workspace/
+├── AGENTS.md      # 行動規範（トレーディングルール）
+├── SOUL.md        # 性格定義（分析スタイル）
+├── USER.md        # ユーザー情報
+├── IDENTITY.md    # エージェント名（"Trady"）
+├── MEMORY.md      # 長期記憶（取引履歴・学習記録）
+├── HEARTBEAT.md   # 定期チェックの設定
+├── memory/        # 日次ログ
+└── trades/        # 取引記録
+\end{lstlisting}
+
+\subsubsection{HEARTBEAT.md による自動スキャン}
+
+HEARTBEAT.md を設定することで、指定した時間帯に自動的にタスクを実行させることができる。
+この事例では、平日 22:00 JST（米国市場のプレマーケット時間帯）に
+「カタリストスキャン」を自動実行している。
+
+スキャン対象：
+\begin{itemize}
+  \item S\&P 500 銘柄の決算発表スケジュール
+  \item アナリストによる格上げ・格下げ
+  \item 主要ニュース
+  \item プレマーケットで 3\% 以上上昇している銘柄
+\end{itemize}
+
+\begin{lstlisting}[title=HEARTBEAT.md の設定例]
+## Catalyst Scan
+
+- Schedule: weekdays 22:00 JST
+- Action: S&P 500銘柄から翌日の注目銘柄を抽出し、
+  Telegramに推奨銘柄リストを送信する
+- Criteria: 決算発表、格上げ、ニュース、
+  プレマーケット上昇率3%以上
+\end{lstlisting}
+
+\begin{notebox}
+元記事では HEARTBEAT の実行時間帯について「21:30--22:30 JST」と
+「22:00 JST」の二つの記述がある。HEARTBEAT.md では時間帯の範囲を指定し、
+実際の Cron ジョブは特定時刻（22:00）に発火する、という二段階の仕組みである。
+\end{notebox}
+
+\subsubsection{SOUL.md による性格設定}
+
+エージェント「Trady」の SOUL.md では、
+以下のようなコア値が設定されている。
+
+\begin{lstlisting}[title=SOUL.md（トレーディングエージェント用）の抜粋]
+# Core Values
+- 本当に役立つことを実行すること
+- 意見を持つこと（曖昧な回答をしない）
+- 見かけの親切ではなく実質的な支援を行う
+
+# Trading Scope
+- 米国株・日本株のリサーチとペーパートレード
+- 財務助言は一切提供しない
+\end{lstlisting}
+
+\subsubsection{MEMORY.md による学習の蓄積}
+
+MEMORY.md にはトレーディングの結果と学習事項が自動的に記録される。
+記事で公開されている第 1 週の結果は以下のとおりである。
+
+\begin{longtable}{lp{80mm}}
+\toprule
+\textbf{指標} & \textbf{値} \\
+\midrule
+\endhead
+勝率 & 0\%（全敗） \\
+実現損失 & --\$450 \\
+保有ポジション & META（\$675 → \$639.77, --5.2\%）\\
+ & TSLA（\$427 → \$417.44, --2.2\%） \\
+学習事項 & 「規律 > 確信」「寄付きエントリー禁止」「損切り必須」 \\
+\bottomrule
+\end{longtable}
+
+このように、失敗からの学習をメモリに蓄積し、
+次週以降の戦略に反映させるサイクルが MEMORY.md を通じて実現されている。
+
+\subsection{元記事のアーキテクチャ解説に関する補足}
+
+元記事では OpenClaw のアーキテクチャを「5 層構造」として以下のように説明している。
+
+\begin{enumerate}
+  \item Gateway（メッセージの受付・振り分け）
+  \item Input Events（メッセージ、Webhook、Cron、Heartbeat）
+  \item Agent Loop（メッセージをアクションと返答に変換）
+  \item Tools \& Actions（ブラウザ、ファイル、API 呼び出し）
+  \item Persistent Memory（ローカル Markdown ファイルに保存）
+\end{enumerate}
+
+\begin{notebox}
+この「5 層」分類はブログ著者独自の整理であり、OpenClaw 公式の用語ではない。
+本チュートリアルの第 1 節で説明したとおり、
+公式アーキテクチャは Gateway・Pi Agent・ツール群の 3 コンポーネント構成である。
+また、元記事では Agent Loop を「6 ステップ」としているが、
+本チュートリアル 1.2.3 節で述べたとおり公式には 4 ステップ
+（セッション解決→コンテキスト組立→モデル応答のストリーミング→状態の永続化）
+である。記事の「6 ステップ」は内部処理をより細かく分解したものと考えられる。
+\end{notebox}
+
+\subsection{この事例から学べること}
+
+\begin{itemize}
+  \item \textbf{VPS + Docker による分離運用}：個人 PC に直接インストールせず、
+    VPS 上のコンテナで運用することでセキュリティリスクを低減できる
+  \item \textbf{HEARTBEAT による定期自動化}：Cron ジョブとワークスペース設定の組み合わせで、
+    完全自動のデータ収集・分析パイプラインを構築できる
+  \item \textbf{MEMORY.md による継続的学習}：取引結果と学習事項をメモリに蓄積し、
+    エージェントの判断品質を対話を通じて段階的に向上させることができる
+  \item \textbf{Telegram によるモバイル運用}：外出先からもチャットベースで
+    戦略の確認・修正が可能である
+\end{itemize}
 
 % ═══════════════════════════════════════════
 \section{モバイルアプリ・デスクトップアプリ}
