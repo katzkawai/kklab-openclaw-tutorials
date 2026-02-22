@@ -1,0 +1,1038 @@
+% OpenClaw チュートリアル
+% LuaLaTeX で組版
+% コンパイル: lualatex openclaw-tutorial.tex
+\documentclass[a4paper,11pt]{ltjsarticle}
+
+% ───────────────────────────────────────────
+% パッケージ
+% ───────────────────────────────────────────
+\usepackage{luatexja-fontspec}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{tcolorbox}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{geometry}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+
+\tcbuselibrary{listings,breakable,skins}
+
+% ───────────────────────────────────────────
+% ページ設定
+% ───────────────────────────────────────────
+\geometry{margin=25mm}
+
+% ───────────────────────────────────────────
+% 色定義
+% ───────────────────────────────────────────
+\definecolor{clawred}{HTML}{E63946}
+\definecolor{clawdark}{HTML}{1D3557}
+\definecolor{clawblue}{HTML}{457B9D}
+\definecolor{clawlight}{HTML}{F1FAEE}
+\definecolor{codebg}{HTML}{F5F5F5}
+\definecolor{codeframe}{HTML}{CCCCCC}
+
+% ───────────────────────────────────────────
+% ハイパーリンク設定
+% ───────────────────────────────────────────
+\hypersetup{
+  colorlinks=true,
+  linkcolor=clawdark,
+  urlcolor=clawblue,
+  citecolor=clawdark,
+  bookmarksnumbered=true,
+  pdftitle={OpenClaw チュートリアル},
+  pdfauthor={河合勝彦},
+}
+
+% ───────────────────────────────────────────
+% listings 設定
+% ───────────────────────────────────────────
+\lstset{
+  basicstyle=\ttfamily\small,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  rulecolor=\color{codeframe},
+  breaklines=true,
+  breakatwhitespace=false,
+  columns=fullflexible,
+  keepspaces=true,
+  showstringspaces=false,
+  tabsize=2,
+  xleftmargin=4mm,
+  framexleftmargin=2mm,
+}
+
+\lstdefinelanguage{json}{
+  morestring=[b]",
+  literate=
+    *{:}{{{\color{clawred}:}}}{1}
+    {,}{{{\color{clawred},}}}{1}
+    {\{}{{{\color{clawdark}\{}}}{1}
+    {\}}{{{\color{clawdark}\}}}}{1}
+    {[}{{{\color{clawdark}[}}}{1}
+    {]}{{{\color{clawdark}]}}}{1},
+}
+
+% ───────────────────────────────────────────
+% tcolorbox 定義
+% ───────────────────────────────────────────
+\newtcolorbox{notebox}{
+  colback=clawlight,
+  colframe=clawblue,
+  fonttitle=\bfseries,
+  title={NOTE},
+  breakable,
+  left=3mm, right=3mm, top=2mm, bottom=2mm,
+}
+
+\newtcolorbox{warnbox}{
+  colback=yellow!10,
+  colframe=clawred,
+  fonttitle=\bfseries,
+  title={WARNING},
+  breakable,
+  left=3mm, right=3mm, top=2mm, bottom=2mm,
+}
+
+\newtcolorbox{tipbox}{
+  colback=green!5,
+  colframe=green!50!black,
+  fonttitle=\bfseries,
+  title={TIP},
+  breakable,
+  left=3mm, right=3mm, top=2mm, bottom=2mm,
+}
+
+% ───────────────────────────────────────────
+% セクション見出しスタイル
+% ───────────────────────────────────────────
+\titleformat{\section}
+  {\Large\bfseries\color{clawdark}}{\thesection}{1em}{}
+\titleformat{\subsection}
+  {\large\bfseries\color{clawblue}}{\thesubsection}{1em}{}
+\titleformat{\subsubsection}
+  {\normalsize\bfseries\color{clawblue!80!black}}{\thesubsubsection}{1em}{}
+
+% ───────────────────────────────────────────
+% ヘッダ・フッタ
+% ───────────────────────────────────────────
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\textcolor{clawdark}{OpenClaw チュートリアル}}
+\fancyhead[R]{\small\textcolor{clawdark}{\leftmark}}
+\fancyfoot[C]{\small\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% ───────────────────────────────────────────
+% タイトル情報
+% ───────────────────────────────────────────
+\title{%
+  \vspace{-10mm}
+  {\LARGE\bfseries\textcolor{clawdark}{OpenClaw チュートリアル}}\\[4mm]
+  {\large オープンソース パーソナル AI アシスタント\\導入から実践まで}
+}
+\author{河合勝彦}
+\date{2026年2月22日}
+
+% ═══════════════════════════════════════════
+\begin{document}
+\maketitle
+\thispagestyle{fancy}
+
+% ───────────────────────────────────────────
+\begin{abstract}
+OpenClaw は、ローカル環境で動作するオープンソースのパーソナル AI アシスタントである。
+WhatsApp・Telegram・Discord・Slack をはじめとする多数のチャットプラットフォームと統合し、
+日常のタスク自動化を実現する。
+本チュートリアルでは、インストールから基本設定、チャンネル連携、スキルの活用、
+そして高度な自動化までを段階的に解説する。
+\end{abstract}
+
+\tableofcontents
+\clearpage
+
+% ═══════════════════════════════════════════
+\section{OpenClaw とは}
+% ═══════════════════════════════════════════
+
+OpenClaw\footnote{\url{https://openclaw.ai/}}は、
+MIT ライセンスで公開されているオープンソースのパーソナル AI アシスタントである。
+以下の特徴を持つ。
+
+\begin{itemize}
+  \item \textbf{ローカル実行}：自分のマシン上で動作し、データのプライバシーを確保
+  \item \textbf{マルチチャンネル対応}：WhatsApp、Telegram、Discord、Slack、Signal、iMessage、
+        Google Chat、Microsoft Teams、Matrix、LINE など 15 以上のプラットフォームに対応
+  \item \textbf{永続メモリ}：会話の文脈やユーザーの好みを学習し、24時間稼働
+  \item \textbf{システムアクセス}：ブラウザ操作、ファイル読み書き、シェルコマンド実行が可能
+  \item \textbf{拡張性}：ClawHub のスキルマーケットプレイスを通じてコミュニティ製スキルを導入可能
+  \item \textbf{マルチモデル対応}：Anthropic Claude、OpenAI GPT、ローカルモデルを選択可能
+\end{itemize}
+
+\subsection{アーキテクチャ概要}
+
+OpenClaw の中核は \textbf{Gateway} と呼ばれるプロセスである。
+Gateway は WebSocket ベース（\texttt{ws://127.0.0.1:18789}）で動作し、
+セッション管理、チャンネル接続、ツール呼び出し、イベント処理を一元的に制御する。
+
+\begin{center}
+\begin{tcolorbox}[colback=white,colframe=clawdark,width=0.92\textwidth,title=アーキテクチャ]
+\small
+\begin{tabular}{ccc}
+\begin{minipage}[t]{0.25\textwidth}
+\centering
+\textbf{チャットアプリ}\\[3mm]
+\fbox{\small\begin{tabular}{l}
+WhatsApp\\Telegram\\Discord\\Slack\\Signal\\...
+\end{tabular}}\\[6mm]
+\fbox{\small\begin{tabular}{l}
+Dashboard\\{\ttfamily :18789}
+\end{tabular}}
+\end{minipage}
+&
+\begin{minipage}[t]{0.05\textwidth}
+\centering
+\vspace{10mm}
+$\Longrightarrow$\\[20mm]
+$\Longleftrightarrow$
+\end{minipage}
+&
+\begin{minipage}[t]{0.28\textwidth}
+\centering
+\textbf{Gateway}\\[3mm]
+\fbox{\small\begin{tabular}{l}
+OpenClaw\\
+Gateway {\ttfamily :18789}\\[2mm]
+\textit{セッション管理}\\
+\textit{ユーザー認証}\\
+\textit{スキル読込}\\
+\textit{メモリ管理}
+\end{tabular}}
+\end{minipage}
+\begin{minipage}[t]{0.05\textwidth}
+\centering
+\vspace{10mm}
+$\Longrightarrow$
+\end{minipage}
+\begin{minipage}[t]{0.25\textwidth}
+\centering
+\textbf{エージェント}\\[3mm]
+\fbox{\small\begin{tabular}{l}
+Pi Agent\\(RPC Mode)
+\end{tabular}}\\[3mm]
+$\Downarrow$\\[3mm]
+\fbox{\small\begin{tabular}{l}
+ツール群\\[1mm]
+\textit{ブラウザ}\\
+\textit{ファイル}\\
+\textit{シェル}
+\end{tabular}}
+\end{minipage}
+\end{tabular}
+\end{tcolorbox}
+\end{center}
+
+% ═══════════════════════════════════════════
+\section{動作環境の準備}
+% ═══════════════════════════════════════════
+
+\subsection{前提条件}
+
+\begin{itemize}
+  \item \textbf{OS}：macOS、Linux、または Windows（WSL2 経由）
+  \item \textbf{Node.js}：バージョン 22 以上が必須
+  \item \textbf{AI モデルの API キー}：Anthropic（Claude）または OpenAI（GPT）のいずれか
+\end{itemize}
+
+\begin{notebox}
+Node.js のバージョンは \texttt{node --version} で確認できる。
+v22 未満の場合は \url{https://nodejs.org/} から最新 LTS をインストールすること。
+\end{notebox}
+
+\subsection{Node.js のインストール（未導入の場合）}
+
+\begin{lstlisting}[language=bash,title=nvm を使った Node.js のインストール]
+# nvm のインストール
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+
+# シェルの再読み込み
+source ~/.bashrc   # bash の場合
+# source ~/.zshrc  # zsh の場合
+
+# Node.js 22 のインストールと有効化
+nvm install 22
+nvm use 22
+node --version     # v22.x.x と表示されれば OK
+\end{lstlisting}
+
+% ═══════════════════════════════════════════
+\section{インストール}
+% ═══════════════════════════════════════════
+
+インストール方法は 3 つ用意されている。
+
+\subsection{方法 1：ワンライナー（推奨）}
+
+\begin{lstlisting}[language=bash,title=macOS / Linux]
+curl -fsSL https://openclaw.ai/install.sh | bash
+\end{lstlisting}
+
+\begin{lstlisting}[title=Windows (PowerShell)]
+iwr -useb https://openclaw.ai/install.ps1 | iex
+\end{lstlisting}
+
+\subsection{方法 2：npm によるインストール}
+
+\begin{lstlisting}[language=bash]
+npm install -g openclaw@latest
+\end{lstlisting}
+
+\subsection{方法 3：ソースからビルド（開発者向け）}
+
+\begin{lstlisting}[language=bash]
+git clone https://github.com/openclaw/openclaw.git
+cd openclaw
+pnpm install
+pnpm build
+pnpm openclaw onboard --install-daemon
+\end{lstlisting}
+
+\begin{tipbox}
+ソースビルドでは \texttt{pnpm} が必要である。
+\texttt{npm install -g pnpm} で導入できる。
+\end{tipbox}
+
+% ═══════════════════════════════════════════
+\section{初期セットアップ}
+% ═══════════════════════════════════════════
+
+\subsection{オンボーディングウィザードの実行}
+
+インストール後、以下のコマンドで対話型セットアップウィザードを起動する。
+
+\begin{lstlisting}[language=bash]
+openclaw onboard --install-daemon
+\end{lstlisting}
+
+ウィザードでは以下の項目を順に設定する。
+
+\begin{enumerate}
+  \item \textbf{Gateway の設定}：ポート番号（デフォルト 18789）とセキュリティ
+  \item \textbf{ワークスペースの構成}：作業ディレクトリの場所
+  \item \textbf{AI モデルの選択}：Claude / GPT / ローカルモデル
+  \item \textbf{認証設定}：API キーまたは OAuth の設定
+  \item \textbf{チャンネルの接続}：最初のメッセージングプラットフォームの追加
+  \item \textbf{スキルのインストール}：初期スキルの選択
+\end{enumerate}
+
+\begin{notebox}
+オンボーディングは通常 10 分以内に完了する。
+各ステップは後からでも \texttt{openclaw configure} で変更可能である。
+\end{notebox}
+
+\subsection{Gateway の起動確認}
+
+\begin{lstlisting}[language=bash]
+# Gateway のステータス確認
+openclaw gateway status
+
+# フォアグラウンドで起動（デバッグ時に便利）
+openclaw gateway --port 18789 --verbose
+\end{lstlisting}
+
+\subsection{Dashboard（管理画面）へのアクセス}
+
+\begin{lstlisting}[language=bash]
+openclaw dashboard
+\end{lstlisting}
+
+ブラウザで \url{http://127.0.0.1:18789/} にアクセスすると、
+管理画面（Dashboard）が表示される。
+ここから以下の操作が可能である。
+
+\begin{itemize}
+  \item セッションの監視と管理
+  \item チャンネルの追加・設定
+  \item スキルの有効化・無効化
+  \item メモリの確認
+  \item ログの閲覧
+\end{itemize}
+
+% ═══════════════════════════════════════════
+\section{設定ファイル}
+% ═══════════════════════════════════════════
+
+OpenClaw の主要な設定は \texttt{\~{}/.openclaw/openclaw.json} に記述する。
+
+\subsection{基本設定の例}
+
+\begin{lstlisting}[language=json,title=\~{}/.openclaw/openclaw.json]
+{
+  "model": {
+    "provider": "anthropic",
+    "name": "claude-sonnet-4-6"
+  },
+  "agents": {
+    "defaults": {
+      "workspace": "~/.openclaw/workspace"
+    }
+  },
+  "gateway": {
+    "port": 18789
+  },
+  "skills": {
+    "entries": {}
+  }
+}
+\end{lstlisting}
+
+\subsection{主要な設定項目}
+
+\begin{longtable}{lp{85mm}}
+\toprule
+\textbf{キー} & \textbf{説明} \\
+\midrule
+\endhead
+\texttt{model.provider} & モデルプロバイダ（\texttt{anthropic}, \texttt{openai} など） \\
+\texttt{model.name} & 使用するモデル名 \\
+\texttt{gateway.port} & Gateway のポート番号 \\
+\texttt{agents.defaults.workspace} & ワークスペースのパス \\
+\texttt{skills.entries} & スキルごとの設定（API キー等） \\
+\texttt{skills.load.extraDirs} & 追加のスキル読込ディレクトリ \\
+\texttt{skills.load.watch} & スキルファイルの変更監視（デフォルト \texttt{true}） \\
+\bottomrule
+\end{longtable}
+
+\subsection{環境変数}
+
+設定ファイルの代わりに環境変数でも制御できる。
+
+\begin{longtable}{lp{85mm}}
+\toprule
+\textbf{変数名} & \textbf{説明} \\
+\midrule
+\endhead
+\texttt{OPENCLAW\_HOME} & ホームディレクトリの上書き \\
+\texttt{OPENCLAW\_STATE\_DIR} & ステートディレクトリの上書き \\
+\texttt{OPENCLAW\_CONFIG\_PATH} & 設定ファイルパスの上書き \\
+\bottomrule
+\end{longtable}
+
+% ═══════════════════════════════════════════
+\section{チャンネルの設定}
+% ═══════════════════════════════════════════
+
+OpenClaw の最大の特長は、日常的に使うチャットアプリを通じて AI アシスタントと
+対話できる点にある。本章では主要なチャンネルの設定方法を解説する。
+
+\subsection{対応チャンネル一覧}
+
+\begin{longtable}{lll}
+\toprule
+\textbf{チャンネル} & \textbf{接続方式} & \textbf{備考} \\
+\midrule
+\endhead
+WhatsApp & WhatsApp Web & QR コード認証 \\
+Telegram & Bot API & BotFather でトークン取得 \\
+Discord & Bot API & Developer Portal で設定 \\
+Slack & Bot API & Slack App を作成 \\
+Signal & Signal CLI & 電話番号認証 \\
+iMessage & BlueBubbles & macOS のみ \\
+Google Chat & Workspace API & Google Cloud 設定 \\
+Microsoft Teams & Bot Framework & Azure 設定 \\
+Matrix & Bot SDK & ホームサーバー接続 \\
+LINE & Messaging API & LINE Developers で設定 \\
+IRC & IRC プロトコル & サーバー接続 \\
+\bottomrule
+\end{longtable}
+
+\subsection{Telegram の設定例}
+
+Telegram は最も簡単に設定できるチャンネルの一つである。
+
+\begin{enumerate}
+  \item Telegram で \texttt{@BotFather} にメッセージを送信
+  \item \texttt{/newbot} コマンドでボットを作成
+  \item ボット名とユーザー名を設定
+  \item 発行された API トークンをコピー
+  \item OpenClaw に設定を追加：
+\end{enumerate}
+
+\begin{lstlisting}[language=bash,title=CLI でチャンネルを追加]
+openclaw channels add telegram
+# 対話型プロンプトに従い、API トークンを入力
+\end{lstlisting}
+
+または、設定ファイルに直接記述する。
+
+\begin{lstlisting}[language=json,title=openclaw.json にチャンネルを追加]
+{
+  "channels": {
+    "telegram": {
+      "enabled": true,
+      "token": "YOUR_BOT_TOKEN"
+    }
+  }
+}
+\end{lstlisting}
+
+\begin{warnbox}
+API トークンは秘密情報である。Git リポジトリにコミットしないよう注意すること。
+環境変数での管理を推奨する。
+\end{warnbox}
+
+\subsection{WhatsApp の設定例}
+
+\begin{enumerate}
+  \item \texttt{openclaw channels add whatsapp} を実行
+  \item ターミナルに表示される QR コードを WhatsApp アプリでスキャン
+  \item 接続が確立されると、OpenClaw がメッセージを受信開始
+\end{enumerate}
+
+\begin{notebox}
+WhatsApp は WhatsApp Web プロトコルを使用するため、
+スマートフォン側の WhatsApp が起動している必要がある。
+\end{notebox}
+
+\subsection{DM セキュリティ（ペアリングポリシー）}
+
+デフォルトでは、未知の送信者からの DM にはペアリングコードが要求される。
+これにより、不正なメッセージの処理を防止する。
+
+\begin{lstlisting}[language=bash,title=ペアリングの管理]
+# ペアリングコードの生成
+openclaw pairing create
+
+# 特定のユーザーを許可リストに追加
+openclaw pairing allow +819012345678
+\end{lstlisting}
+
+% ═══════════════════════════════════════════
+\section{基本的な使い方}
+% ═══════════════════════════════════════════
+
+\subsection{チャットでの対話}
+
+設定済みのチャンネル（Telegram、WhatsApp 等）から
+ボットにメッセージを送信するだけで AI アシスタントと対話できる。
+
+\subsubsection{基本コマンド}
+
+チャット内で使えるスラッシュコマンドを以下に示す。
+
+\begin{longtable}{lp{80mm}}
+\toprule
+\textbf{コマンド} & \textbf{説明} \\
+\midrule
+\endhead
+\texttt{/status} & セッションの状態表示 \\
+\texttt{/new} または \texttt{/reset} & セッションのリセット（コンテキストクリア） \\
+\texttt{/think <level>} & 推論の深さを設定（\texttt{low}, \texttt{medium}, \texttt{high}） \\
+\texttt{/compact} & 会話を要約して圧縮 \\
+\texttt{/restart} & Gateway の再起動 \\
+\bottomrule
+\end{longtable}
+
+\subsection{CLI からの操作}
+
+チャットアプリを使わず、CLI から直接操作することも可能である。
+
+\begin{lstlisting}[language=bash]
+# メッセージの送信
+openclaw message send --to +819012345678 --message "こんにちは"
+
+# エージェントに直接質問
+openclaw agent --message "明日の天気を教えて" --thinking high
+
+# TUI（ターミナル UI）の起動
+openclaw tui
+\end{lstlisting}
+
+\subsection{Dashboard からの操作}
+
+\texttt{openclaw dashboard} で起動するウェブ UI からも操作できる。
+Dashboard では以下が可能である。
+
+\begin{itemize}
+  \item リアルタイムのセッション監視
+  \item WebChat を使った直接対話
+  \item スキルの管理
+  \item ログの閲覧とフィルタリング
+  \item チャンネルの状態確認
+\end{itemize}
+
+% ═══════════════════════════════════════════
+\section{スキルの管理}
+% ═══════════════════════════════════════════
+
+スキルは OpenClaw の機能を拡張するモジュールである。
+スキルは「ツールの組み合わせ方をエージェントに教えるテキストブック」であり、
+新しい権限を付与するものではない。
+
+\subsection{スキルの種類と読込順序}
+
+スキルは以下の 3 箇所から読み込まれる（優先度順）。
+
+\begin{enumerate}
+  \item \textbf{ワークスペーススキル}：\texttt{<workspace>/skills/}（エージェント固有）
+  \item \textbf{マネージドスキル}：\texttt{\~{}/.openclaw/skills/}（全エージェント共有）
+  \item \textbf{バンドルスキル}：OpenClaw 本体に同梱
+\end{enumerate}
+
+\subsection{ClawHub からのインストール}
+
+ClawHub\footnote{\url{https://clawhub.com}} はコミュニティ製スキルの公開レジストリである。
+
+\begin{lstlisting}[language=bash]
+# スキルのインストール
+clawhub install <skill-slug>
+
+# インストール済みスキルの一覧
+clawhub list
+
+# 全スキルの更新
+clawhub update --all
+
+# スキルのアンインストール
+clawhub uninstall <skill-slug>
+\end{lstlisting}
+
+\begin{lstlisting}[language=bash,title=CLI でスキルを管理]
+# 利用可能なスキルの確認
+openclaw skills list --eligible
+
+# スキルの詳細情報
+openclaw skills info <skill-name>
+
+# スキルの動作確認
+openclaw skills check
+\end{lstlisting}
+
+\subsection{スキルの設定}
+
+スキルごとの設定は \texttt{openclaw.json} の \texttt{skills.entries} に記述する。
+
+\begin{lstlisting}[language=json,title=スキル設定の例]
+{
+  "skills": {
+    "entries": {
+      "spotify": {
+        "enabled": true,
+        "apiKey": "YOUR_SPOTIFY_API_KEY",
+        "env": {
+          "SPOTIFY_CLIENT_ID": "abc123",
+          "SPOTIFY_CLIENT_SECRET": "secret456"
+        }
+      },
+      "gmail": {
+        "enabled": true
+      },
+      "github": {
+        "enabled": true,
+        "apiKey": "ghp_xxxxxxxxxxxx"
+      }
+    }
+  }
+}
+\end{lstlisting}
+
+\subsection{カスタムスキルの作成}
+
+独自のスキルを作成するには、ワークスペースの \texttt{skills/} ディレクトリに
+\texttt{SKILL.md} ファイルを配置する。
+
+\begin{lstlisting}[title=\~{}/.openclaw/workspace/skills/my-skill/SKILL.md]
+---
+name: my-custom-skill
+description: 独自のカスタムスキル
+user-invocable: true
+metadata: {"openclaw":{"emoji":"🔧","requires":{"bins":["curl"]}}}
+---
+
+# My Custom Skill
+
+このスキルは以下のことができます：
+
+1. 特定の API からデータを取得する
+2. 取得したデータを整形してユーザーに返す
+
+## 使い方
+
+ユーザーが「データを取得して」と言ったら、
+以下の手順で処理してください：
+
+1. curl を使って API にリクエストを送信
+2. レスポンスを JSON としてパース
+3. 必要な情報を抽出してユーザーに提示
+\end{lstlisting}
+
+\begin{notebox}
+スキルのファイル変更は自動検知される（\texttt{skills.load.watch: true}）。
+新しいセッションで変更が反映される。
+\end{notebox}
+
+\begin{warnbox}
+ClawHub のサードパーティスキルは、インストール前に内容を確認すること。
+2026年2月時点で悪意のあるスキルの報告例がある。
+\end{warnbox}
+
+% ═══════════════════════════════════════════
+\section{ワークスペースとメモリ}
+% ═══════════════════════════════════════════
+
+\subsection{ワークスペース構造}
+
+デフォルトのワークスペースは \texttt{\~{}/.openclaw/workspace/} に配置され、
+以下のファイルでエージェントの挙動をカスタマイズできる。
+
+\begin{longtable}{lp{80mm}}
+\toprule
+\textbf{ファイル} & \textbf{役割} \\
+\midrule
+\endhead
+\texttt{AGENTS.md} & エージェントの定義と設定 \\
+\texttt{SOUL.md} & エージェントの性格・話し方の設定 \\
+\texttt{TOOLS.md} & 利用可能なツールのドキュメント \\
+\texttt{skills/} & カスタムスキルの格納ディレクトリ \\
+\bottomrule
+\end{longtable}
+
+\subsection{SOUL.md によるパーソナリティ設定}
+
+\texttt{SOUL.md} を編集することで、アシスタントの応答スタイルを自由にカスタマイズできる。
+
+\begin{lstlisting}[title=SOUL.md の例]
+あなたは親切で丁寧な日本語アシスタントです。
+
+- 敬語を使って応答してください
+- 技術的な質問には具体的なコード例を添えてください
+- 分からないことは正直に「分かりません」と答えてください
+- ユーモアを交えつつ、正確な情報を提供してください
+\end{lstlisting}
+
+\subsection{メモリシステム}
+
+OpenClaw は永続メモリを備えており、
+ユーザーの好み、過去の会話、よく使うパターンなどを自動的に記憶する。
+
+\begin{lstlisting}[language=bash]
+# メモリの確認
+openclaw memory
+
+# メモリの管理（Dashboard からも可能）
+openclaw dashboard
+\end{lstlisting}
+
+% ═══════════════════════════════════════════
+\section{自動化機能}
+% ═══════════════════════════════════════════
+
+OpenClaw は高度な自動化機能を備えている。
+
+\subsection{Cron ジョブ}
+
+定期的なタスクを cron 式で設定できる。
+
+\begin{lstlisting}[language=bash]
+# cron ジョブの管理
+openclaw cron list
+openclaw cron add "0 9 * * *" "今日の予定を教えて"
+openclaw cron remove <job-id>
+\end{lstlisting}
+
+チャット内から設定することも可能である。
+
+\begin{quote}
+\textit{「毎朝 9 時にニュースの要約を送って」}
+\end{quote}
+
+\subsection{Webhook}
+
+外部サービスからのイベントを受信して処理できる。
+
+\begin{lstlisting}[language=bash]
+# Webhook の管理
+openclaw hooks list
+openclaw hooks add --url /my-webhook --action "通知を処理"
+\end{lstlisting}
+
+\subsection{Gmail 連携}
+
+Gmail Pub/Sub を設定することで、メールの受信をトリガーにした自動処理が可能になる。
+
+% ═══════════════════════════════════════════
+\section{ブラウザ操作}
+% ═══════════════════════════════════════════
+
+OpenClaw は Chrome/Chromium を制御し、ウェブブラウジングやフォーム入力を自動化できる。
+
+\begin{lstlisting}[language=bash]
+# ブラウザの起動
+openclaw browser
+\end{lstlisting}
+
+チャットで以下のような依頼が可能である。
+
+\begin{itemize}
+  \item 「\texttt{example.com} を開いてスクリーンショットを撮って」
+  \item 「GitHub の Issue \#42 の内容を確認して」
+  \item 「このフォームに以下の内容を入力して送信して」
+\end{itemize}
+
+\begin{warnbox}
+ブラウザ操作は強力な機能であるため、
+サンドボックスモードでの実行を推奨する。
+\end{warnbox}
+
+% ═══════════════════════════════════════════
+\section{リモートアクセス}
+% ═══════════════════════════════════════════
+
+自宅や VPS 上の Gateway に外出先からアクセスする方法を説明する。
+
+\subsection{Tailscale によるアクセス}
+
+Tailscale\footnote{\url{https://tailscale.com/}} を使えば、
+安全なリモートアクセスが簡単に実現できる。
+
+\begin{lstlisting}[language=bash]
+# Tailscale Serve（tailnet 内のみ）
+tailscale serve --bg 18789
+
+# Tailscale Funnel（公開アクセス、パスワード認証必須）
+tailscale funnel --bg 18789
+\end{lstlisting}
+
+\subsection{SSH トンネル}
+
+SSH トンネルを使ったリモートアクセスも可能である。
+
+\begin{lstlisting}[language=bash]
+# リモートサーバーの Gateway にトンネル接続
+ssh -L 18789:localhost:18789 user@remote-server
+\end{lstlisting}
+
+% ═══════════════════════════════════════════
+\section{セキュリティ}
+% ═══════════════════════════════════════════
+
+\subsection{基本方針}
+
+\begin{itemize}
+  \item インバウンドの DM は常に「信頼できない入力」として扱う
+  \item デフォルトのペアリングポリシー（\texttt{dmPolicy="pairing"}）を維持する
+  \item サードパーティスキルのインストール前に内容を確認する
+  \item API キーやトークンは環境変数で管理し、設定ファイルに直接記述しない
+\end{itemize}
+
+\subsection{サンドボックスモード}
+
+信頼度の低いツールやスキルを実行する際は、
+サンドボックス（Docker コンテナ）内で実行できる。
+
+\begin{lstlisting}[language=json,title=サンドボックスの設定例]
+{
+  "agents": {
+    "defaults": {
+      "sandbox": {
+        "docker": {
+          "enabled": true,
+          "setupCommand": "apt-get update && apt-get install -y curl"
+        }
+      }
+    }
+  }
+}
+\end{lstlisting}
+
+\subsection{昇格モード}
+
+特定のセッションで管理者権限が必要な場合、
+昇格モードを有効にできる（許可リストに登録済みのユーザーのみ）。
+
+\begin{lstlisting}[title=チャット内での昇格モード切替]
+/elevated on    # 昇格モード有効化
+/elevated off   # 昇格モード無効化
+\end{lstlisting}
+
+% ═══════════════════════════════════════════
+\section{トラブルシューティング}
+% ═══════════════════════════════════════════
+
+\subsection{診断コマンド}
+
+\begin{lstlisting}[language=bash]
+# システム診断
+openclaw doctor
+
+# ヘルスチェック
+openclaw health
+
+# ログの確認
+openclaw logs
+
+# 詳細ログ付きで Gateway を起動
+openclaw gateway --port 18789 --verbose
+\end{lstlisting}
+
+\subsection{よくある問題と対処}
+
+\begin{longtable}{p{55mm}p{75mm}}
+\toprule
+\textbf{症状} & \textbf{対処法} \\
+\midrule
+\endhead
+Gateway が起動しない &
+\texttt{openclaw doctor} で診断。ポート競合を確認 \\
+\addlinespace
+チャンネルが接続できない &
+API トークンの有効性を確認。\texttt{openclaw channels} で状態を確認 \\
+\addlinespace
+スキルが読み込まれない &
+\texttt{openclaw skills list --eligible} で確認。
+\texttt{SKILL.md} の \texttt{requires} 条件を確認 \\
+\addlinespace
+応答が遅い &
+\texttt{/think low} で推論レベルを下げる。
+モデルのフェイルオーバー設定を確認 \\
+\addlinespace
+メモリが反映されない &
+\texttt{/new} でセッションをリセット \\
+\bottomrule
+\end{longtable}
+
+% ═══════════════════════════════════════════
+\section{CLI コマンドリファレンス}
+% ═══════════════════════════════════════════
+
+主要な CLI コマンドの一覧を示す。
+
+\begin{longtable}{lp{80mm}}
+\toprule
+\textbf{コマンド} & \textbf{説明} \\
+\midrule
+\endhead
+\texttt{openclaw onboard} & オンボーディングウィザードの起動 \\
+\texttt{openclaw gateway} & Gateway の起動・管理 \\
+\texttt{openclaw gateway status} & Gateway の状態確認 \\
+\texttt{openclaw dashboard} & Dashboard（Web UI）の起動 \\
+\texttt{openclaw tui} & ターミナル UI の起動 \\
+\texttt{openclaw agent --message} & エージェントへの直接メッセージ \\
+\texttt{openclaw message send} & メッセージの送信 \\
+\texttt{openclaw channels} & チャンネルの管理 \\
+\texttt{openclaw skills} & スキルの管理 \\
+\texttt{openclaw configure} & 設定の変更 \\
+\texttt{openclaw doctor} & システム診断 \\
+\texttt{openclaw health} & ヘルスチェック \\
+\texttt{openclaw logs} & ログの表示 \\
+\texttt{openclaw memory} & メモリの管理 \\
+\texttt{openclaw cron} & Cron ジョブの管理 \\
+\texttt{openclaw hooks} & Webhook の管理 \\
+\texttt{openclaw browser} & ブラウザの管理 \\
+\texttt{openclaw update} & OpenClaw の更新 \\
+\texttt{openclaw update --channel beta} & ベータ版への切替 \\
+\texttt{openclaw uninstall} & アンインストール \\
+\texttt{openclaw reset} & システムのリセット \\
+\bottomrule
+\end{longtable}
+
+% ═══════════════════════════════════════════
+\section{実践例：日常タスクの自動化}
+% ═══════════════════════════════════════════
+
+ここでは OpenClaw を使った具体的なユースケースを紹介する。
+
+\subsection{例 1：朝のブリーフィング自動化}
+
+毎朝 7 時に、天気予報・本日の予定・未読メールの要約を
+Telegram に送信する設定を行う。
+
+\begin{enumerate}
+  \item Telegram チャンネルを設定（第\ref{sec:channel}節を参照……前述の通り）
+  \item 必要なスキル（天気、カレンダー、Gmail）をインストール
+  \item Cron ジョブを設定
+\end{enumerate}
+
+\begin{lstlisting}[language=bash]
+clawhub install weather
+clawhub install google-calendar
+clawhub install gmail
+openclaw cron add "0 7 * * *" \
+  "おはようございます。今日の天気、予定、未読メールを要約してください"
+\end{lstlisting}
+
+\subsection{例 2：GitHub Issue の自動トリアージ}
+
+Webhook を使って新規 Issue を自動的に分類する。
+
+\begin{lstlisting}[language=bash]
+clawhub install github
+openclaw hooks add --url /github-webhook \
+  --action "新しい Issue をラベル付けして優先度を判定"
+\end{lstlisting}
+
+\subsection{例 3：ファイル管理}
+
+チャットから直接ファイルの操作を指示する。
+
+\begin{quote}
+\textit{「Downloads フォルダの PDF ファイルを日付別に整理して」}\\
+\textit{「このスプレッドシートのデータを集計して結果を教えて」}\\
+\textit{「プロジェクトの README.md を更新して」}
+\end{quote}
+
+% ═══════════════════════════════════════════
+\section{モバイルアプリ・デスクトップアプリ}
+% ═══════════════════════════════════════════
+
+OpenClaw は以下のコンパニオンアプリを提供している。
+
+\begin{longtable}{lp{80mm}}
+\toprule
+\textbf{プラットフォーム} & \textbf{特徴} \\
+\midrule
+\endhead
+macOS & メニューバーアプリ、Canvas（ビジュアルワークスペース）、
+Voice Wake（音声起動） \\
+iOS & カメラ、位置情報などデバイス機能へのアクセス \\
+Android & カメラ、位置情報、通知など \\
+Linux & デスクトップアプリ \\
+\bottomrule
+\end{longtable}
+
+\subsection{音声機能}
+
+Voice Wake と Talk Mode を有効にすると、
+音声による常時待ち受けと対話が可能になる（ElevenLabs 連携）。
+
+% ═══════════════════════════════════════════
+\section{まとめ}
+% ═══════════════════════════════════════════
+
+本チュートリアルでは、OpenClaw の導入から実践的な活用までを解説した。
+主要なポイントを以下にまとめる。
+
+\begin{enumerate}
+  \item \textbf{インストール}は \texttt{curl} または \texttt{npm} で簡単に行える
+  \item \texttt{openclaw onboard} で対話型セットアップが完了する
+  \item 好みの\textbf{チャットアプリ}をチャンネルとして接続し、自然言語で対話できる
+  \item \textbf{ClawHub} のスキルで機能を拡張できる
+  \item \textbf{Cron}、\textbf{Webhook}、\textbf{ブラウザ操作}で高度な自動化が実現できる
+  \item \textbf{セキュリティ}ではペアリングポリシーとサンドボックスの活用が重要である
+\end{enumerate}
+
+より詳しい情報は以下を参照されたい。
+
+\begin{itemize}
+  \item 公式ドキュメント：\url{https://docs.openclaw.ai/}
+  \item GitHub リポジトリ：\url{https://github.com/openclaw/openclaw}
+  \item ClawHub（スキルレジストリ）：\url{https://clawhub.com}
+  \item コミュニティスキル集：\url{https://github.com/VoltAgent/awesome-openclaw-skills}
+\end{itemize}
+
+\end{document}
